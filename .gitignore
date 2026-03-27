@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test/temp files
+test_db_*.sqlite
+*.tmp
+*.temp
+
+# Claude Code
+.claude/
+
+# Database files (optional, uncomment if needed)
+# *.db
+# *.sqlite
