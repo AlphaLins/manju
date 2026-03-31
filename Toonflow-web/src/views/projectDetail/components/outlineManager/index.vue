@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { MessagePlugin } from "tdesign-vue-next";
@@ -411,6 +411,52 @@ onMounted(() => {
 onUnmounted(() => {
   ws?.close?.();
 });
+
+// ==================== 项目切换监听 ====================
+// 监听 projectId 变化，重置状态并重新获取数据
+watch(
+  () => projectId.value,
+  (newId, oldId) => {
+    if (newId !== oldId) {
+      console.log("[调试] 项目切换:", oldId, "->", newId);
+
+      // 1. 关闭旧的 WebSocket 连接
+      if (ws) {
+        ws.close?.();
+        ws = null;
+        wsInitialized = false;
+        pendingMessage = null;
+      }
+
+      // 2. 重置故事线和大纲数据
+      storyLine.value = "";
+      outline.value = [];
+      activeKey.value = "storyline";
+      canSend.value = true;
+
+      // 3. 清空整个聊天历史缓存（关键修复）
+      chatHistory.value = {};
+
+      // 4. 为新项目初始化聊天历史
+      if (newId && newId > 0) {
+        chatHistory.value[newId] = [
+          {
+            id: uuidv4(),
+            identity: "assistant",
+            role: "助手",
+            data: [{ type: "text", text: "欢迎使用Cosmos!请选择小说后开始AI对话来生成小说故事线与大纲。如您需要我开始为您工作您可以跟我说开始" }],
+          },
+        ];
+
+        // 5. 重新获取新项目的数据
+        getStoryLine();
+      }
+
+      console.log("[调试] 项目状态已重置");
+    }
+  },
+  { immediate: false }
+);
 
 // ==================== 事件处理 ====================
 function handleCleanHistory() {

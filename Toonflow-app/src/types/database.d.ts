@@ -1,4 +1,4 @@
-// @db-hash d15b2df72b301c25716570c7a9724c65
+// @db-hash c209470d7f5ee67e83ba3486e90e7c5f
 //该文件由脚本自动生成，请勿手动修改
 
 export interface t_aiModelMap {
@@ -184,6 +184,28 @@ export interface t_poetry_taskList {
   'state'?: string | null;
 }
 export interface t_poetry_video {
+  'aiConfigId'?: number | null;
+  'configId'?: number | null;
+  'create_time'?: number | null;
+  'error_message'?: string | null;
+  'errorReason'?: string | null;
+  'filePath'?: string | null;
+  'firstFrame'?: string | null;
+  'id'?: number;
+  'model'?: string | null;
+  'prompt'?: string | null;
+  'prompt_id': number;
+  'resolution'?: string | null;
+  'scriptId'?: number | null;
+  'state'?: number | null;
+  'status'?: string | null;
+  'storyboardImgs'?: string | null;
+  'task_id'?: string | null;
+  'time'?: number | null;
+  'update_time'?: number | null;
+  'video_url'?: string | null;
+}
+export interface t_poetry_video_session {
   'create_time'?: number | null;
   'error_message'?: string | null;
   'id'?: number;
@@ -340,6 +362,7 @@ export interface DB {
   "t_poetry_storyline": t_poetry_storyline;
   "t_poetry_taskList": t_poetry_taskList;
   "t_poetry_video": t_poetry_video;
+  "t_poetry_video_session": t_poetry_video_session;
   "t_poetry_videoConfig": t_poetry_videoConfig;
   "t_project": t_project;
   "t_prompts": t_prompts;

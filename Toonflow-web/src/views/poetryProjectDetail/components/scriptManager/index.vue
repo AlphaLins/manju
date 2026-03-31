@@ -124,14 +124,22 @@ function handleScriptChange(scriptId: number | undefined) {
   if (scriptId === undefined) return;
   currentScriptId.value = scriptId;
   getStoryboardData(scriptId);
-  // 使用 store 管理视频数据
-  videoStoreInstance.setCurrentScript(scriptId, projectId.value);
+  // 使用 store 管理视频数据，诗歌模式需要传入 true
+  videoStoreInstance.setCurrentScript(scriptId, projectId.value, true);
 }
 
 async function getScriptData() {
   try {
     const { data } = await axios.post("/poetry_script/geScriptApi", { projectId: projectId.value });
     scripts.value = data;
+    // 自动选择第一个剧本并初始化视频 store
+    if (data.length > 0) {
+      const firstScriptId = data[0].id;
+      selectScriptId.value = firstScriptId;
+      currentScriptId.value = firstScriptId;
+      getStoryboardData(firstScriptId);
+      videoStoreInstance.setCurrentScript(firstScriptId, projectId.value, true);
+    }
   } catch {
     message.error("获取剧本列表失败");
   }

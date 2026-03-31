@@ -76,7 +76,7 @@
             <!-- 信息区域 -->
             <div class="info-wrapper">
               <div class="config-info">
-                <span class="manufacturer-tag">{{ getManufacturerLabel(config.manufacturer) }}</span>
+                <span class="manufacturer-tag">{{ config.model || getManufacturerLabel(config.manufacturer) }}</span>
                 <span class="resolution-tag" v-if="config.resolution">{{ config.resolution }}</span>
                 <span class="duration-tag">{{ config.duration }}s</span>
               </div>
@@ -170,15 +170,19 @@ function openDetail(config: VideoConfig) {
 }
 
 // 删除配置
-function handleDeleteConfig(configId: number) {
+async function handleDeleteConfig(configId: number) {
   Modal.confirm({
     title: "确认删除",
     content: "删除配置后，关联的所有生成结果也会被删除，确定要删除吗？",
     okText: "确定",
     cancelText: "取消",
-    onOk() {
-      store.removeConfig(configId);
-      message.success("删除成功");
+    async onOk() {
+      try {
+        await store.removeConfig(configId);
+        message.success("删除成功");
+      } catch (e: any) {
+        message.error(e?.message || "删除失败");
+      }
     },
   });
 }

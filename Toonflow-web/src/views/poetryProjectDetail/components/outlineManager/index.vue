@@ -13,6 +13,36 @@
         style="height: 100%"></chat>
     </div>
     <div class="workspace">
+      <!-- 快捷操作按钮 -->
+      <div class="quick-actions">
+        <t-button
+          theme="primary"
+          variant="outline"
+          @click="handleGenerateStoryline"
+          :disabled="!canSend"
+          :loading="actionLoading.storyline">
+          <template #icon><t-icon name="book" /></template>
+          故事线生成
+        </t-button>
+        <t-button
+          theme="primary"
+          variant="outline"
+          @click="handleGenerateOutline"
+          :disabled="!canSend"
+          :loading="actionLoading.outline">
+          <template #icon><t-icon name="view-list" /></template>
+          大纲生成
+        </t-button>
+        <t-button
+          theme="success"
+          variant="outline"
+          @click="handleTransferAssets"
+          :disabled="!canSend"
+          :loading="actionLoading.assets">
+          <template #icon><t-icon name="layers" /></template>
+          资产传送
+        </t-button>
+      </div>
       <t-tabs v-model="activeKey">
         <t-tab-panel value="storyline" label="故事线">
           <storylineDom v-model="storyLine" v-if="activeKey == 'storyline'" @save="saveStoryLine"></storylineDom>
@@ -26,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { MessagePlugin } from "tdesign-vue-next";
@@ -79,6 +109,14 @@ const outlineDomRef = ref();
 const chatRef = ref();
 
 const canSend = ref(true);
+
+// 快捷操作按钮加载状态
+const actionLoading = ref({
+  storyline: false,
+  outline: false,
+  assets: false,
+});
+
 // 统一的流式消息状态管理
 interface StreamState {
   msgId: string | null; // 当前流式消息ID
@@ -184,7 +222,7 @@ async function saveStoryLine() {
 }
 // ==================== WebSocket相关 ====================
 function initWsClient() {
-  ws = new WsClient(`/outline/agentsOutline?projectId=${projectId.value}`, {
+  ws = new WsClient(`/poetry_outline/agentsOutline?projectId=${projectId.value}`, {
     onOpen: () => {
       console.log("WebSocket 连接已建立，等待后端 init 消息...");
       // 不再在这里发送消息，等待收到 init 消息后再发送
@@ -412,6 +450,54 @@ onUnmounted(() => {
   ws?.close?.();
 });
 
+// ==================== 项目切换监听 ====================
+// 监听 projectId 变化，重置状态并重新获取数据
+watch(
+  () => projectId.value,
+  (newId, oldId) => {
+    // 项目切换时（包括新建项目）
+    if (newId !== oldId) {
+      console.log("[调试] 项目切换:", oldId, "->", newId);
+
+      // 1. 关闭旧的 WebSocket 连接
+      if (ws) {
+        ws.close?.();
+        ws = null;
+        wsInitialized = false;
+        pendingMessage = null;
+      }
+
+      // 2. 重置所有状态
+      storyLine.value = "";
+      outline.value = [];
+      activeKey.value = "storyline";
+      canSend.value = true;
+      actionLoading.value = { storyline: false, outline: false, assets: false };
+
+      // 3. 清空整个聊天历史缓存（关键修复）
+      chatHistory.value = {};
+
+      // 4. 为新项目初始化聊天历史
+      if (newId && newId > 0) {
+        chatHistory.value[newId] = [
+          {
+            id: uuidv4(),
+            identity: "assistant",
+            role: "助手",
+            data: [{ type: "text", text: "欢迎使用Cosmos!请选择小说后开始AI对话来生成小说故事线与大纲。如您需要我开始为您工作您可以跟我说开始" }],
+          },
+        ];
+
+        // 5. 重新获取新项目的数据
+        getStoryLine();
+      }
+
+      console.log("[调试] 项目状态已重置");
+    }
+  },
+  { immediate: false }
+);
+
 // ==================== 事件处理 ====================
 function handleCleanHistory() {
   sendWs({
@@ -425,6 +511,96 @@ function handleCleanHistory() {
       data: [{ type: "text", text: "欢迎使用Cosmos!请选择小说后开始AI对话来生成小说故事线与大纲。如您需要我开始为您工作您可以跟我说开始" }],
     },
   ];
+}
+
+// ==================== 快捷操作按钮 ====================
+// 生成故事线
+async function handleGenerateStoryline() {
+  if (!canSend.value) return;
+
+  actionLoading.value.storyline = true;
+  canSend.value = false;
+
+  // 添加用户消息
+  messageList.value.push({
+    id: uuidv4(),
+    identity: "user",
+    data: [{ type: "text", text: "请帮我生成故事线" }],
+  });
+  pushThinkingMessage();
+
+  // 通过 WebSocket 发送消息
+  sendWs({
+    type: "msg",
+    data: { type: "user", data: "请帮我生成故事线" },
+  });
+
+  // 等待一段时间后恢复按钮状态（实际状态由 WebSocket 控制）
+  setTimeout(() => {
+    actionLoading.value.storyline = false;
+  }, 5000);
+}
+
+// 生成大纲
+async function handleGenerateOutline() {
+  if (!canSend.value) return;
+
+  actionLoading.value.outline = true;
+  canSend.value = false;
+
+  // 检查是否已有故事线
+  if (!storyLine.value) {
+    window.$message.warning("请先生成故事线");
+    actionLoading.value.outline = false;
+    canSend.value = true;
+    return;
+  }
+
+  // 添加用户消息
+  messageList.value.push({
+    id: uuidv4(),
+    identity: "user",
+    data: [{ type: "text", text: "请帮我生成大纲" }],
+  });
+  pushThinkingMessage();
+
+  // 通过 WebSocket 发送消息
+  sendWs({
+    type: "msg",
+    data: { type: "user", data: "请帮我生成大纲" },
+  });
+
+  // 等待一段时间后恢复按钮状态
+  setTimeout(() => {
+    actionLoading.value.outline = false;
+  }, 5000);
+}
+
+// 资产传送
+async function handleTransferAssets() {
+  if (!canSend.value) return;
+
+  actionLoading.value.assets = true;
+  canSend.value = false;
+
+  // 添加用户消息
+  messageList.value.push({
+    id: uuidv4(),
+    identity: "user",
+    data: [{ type: "text", text: "请将角色、场景、道具传送到资产管理" }],
+  });
+  pushThinkingMessage();
+
+  // 通过 WebSocket 发送消息
+  sendWs({
+    type: "msg",
+    data: { type: "user", data: "请将角色、场景、道具传送到资产管理" },
+  });
+
+  // 等待一段时间后恢复按钮状态
+  setTimeout(() => {
+    actionLoading.value.assets = false;
+  }, 5000);
 }
 </script>
 
@@ -443,6 +619,13 @@ function handleCleanHistory() {
     width: 70%;
     overflow: auto;
   }
+}
+.quick-actions {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--td-component-border);
 }
 .addOriginText {
   display: flex;

@@ -38,6 +38,20 @@ export default async (knex: Knex): Promise<void> => {
   // 添加 t_project.agentStyle 字段，默认 normal
   await addColumn("t_project", "agentStyle", "text", "normal");
 
+  // 修复 t_poetry_video 表缺少的字段
+  await addColumn("t_poetry_video", "configId", "integer");
+  await addColumn("t_poetry_video", "aiConfigId", "integer");
+  await addColumn("t_poetry_video", "errorReason", "text");
+  await addColumn("t_poetry_video", "filePath", "text");
+  await addColumn("t_poetry_video", "firstFrame", "text");
+  await addColumn("t_poetry_video", "storyboardImgs", "text");
+  await addColumn("t_poetry_video", "resolution", "text");
+  await addColumn("t_poetry_video", "model", "text");
+  await addColumn("t_poetry_video", "prompt", "text");
+  await addColumn("t_poetry_video", "time", "integer");
+  await addColumn("t_poetry_video", "state", "integer");
+  await addColumn("t_poetry_video", "scriptId", "integer");
+
   //更正字段
   await alterColumnType("t_config", "modelType", "text");
 

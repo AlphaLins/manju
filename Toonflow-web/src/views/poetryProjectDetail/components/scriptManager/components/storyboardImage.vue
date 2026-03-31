@@ -9,10 +9,16 @@
         <span>生成分镜图</span>
         <span v-if="data.length" class="count">{{ data.length }}</span>
       </div>
-      <button v-if="canGenerate" :disabled="!disableBtn" class="generate-btn" @click="modalShow = true">
-        <i-optimize :size="18" />
-        <span>生成分镜图</span>
-      </button>
+      <div class="header-actions">
+        <button v-if="canGenerate && data.length" class="batch-video-btn" @click="handleBatchGenerateVideo">
+          <i-video-two :size="18" />
+          <span>批量生成视频</span>
+        </button>
+        <button v-if="canGenerate" :disabled="!disableBtn" class="generate-btn" @click="modalShow = true">
+          <i-optimize :size="18" />
+          <span>生成分镜图</span>
+        </button>
+      </div>
     </div>
 
     <!-- 内容区 -->
@@ -54,6 +60,13 @@
               <h4 v-if="item.name" class="card-title">{{ item.name }}</h4>
               <p class="card-desc">{{ item.prompt || "暂无描述" }}</p>
             </div>
+            <!-- 操作按钮 -->
+            <div class="card-actions">
+              <button class="action-btn video-btn" @click.stop="handleGenerateVideo(item)">
+                <i-video-two :size="16" />
+                <span>生成视频</span>
+              </button>
+            </div>
           </div>
         </div>
       </template>
@@ -71,14 +84,17 @@
     <!-- 弹窗 -->
     <storyboardChat v-if="modalShow" v-model="modalShow" :scriptId="scriptId" :projectId="projectId" @save="$emit('save')" />
     <storyboardEditor ref="storyboardEditorRef" @save="handelrEditSave" />
+    <!-- 生成视频弹窗 -->
+    <newVideo v-model="newVideoShow" :scriptId="scriptId ?? 0" :initData="initVideoData" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
 import { message, Modal } from "ant-design-vue";
 import storyboardChat from "./storyboardImage/storyboardChat.vue";
 import storyboardEditor from "@/components/storyboardEditor/index.vue";
+import newVideo from "./generateVideo/newVideo.vue";
 import axios from "@/utils/axios";
 
 interface Storyboard {
@@ -93,6 +109,11 @@ interface Storyboard {
   generateImg: { assetsId: number; filePath: string }[];
 }
 
+interface InitVideoData {
+  images: { id: number; filePath: string; prompt: string }[];
+  mode: "startEnd" | "multi" | "single";
+}
+
 const emit = defineEmits(["save"]);
 const props = defineProps<{
   data: Storyboard[];
@@ -104,6 +125,46 @@ const props = defineProps<{
 
 const modalShow = ref(false);
 const storyboardEditorRef = ref<InstanceType<typeof storyboardEditor> | null>(null);
+
+// 生成视频相关
+const newVideoShow = ref(false);
+const initVideoData = ref<InitVideoData>({ images: [], mode: "single" });
+
+// 生成视频
+function handleGenerateVideo(item: Storyboard) {
+  initVideoData.value = {
+    images: [{
+      id: item.id,
+      filePath: item.filePath,
+      prompt: item.prompt || ""
+    }],
+    mode: "single"
+  };
+  nextTick(() => {
+    newVideoShow.value = true;
+  });
+}
+
+// 批量生成视频
+function handleBatchGenerateVideo() {
+  if (props.data.length === 0) {
+    message.warning("暂无分镜图可生成视频");
+    return;
+  }
+  // 批量模式：多图模式
+  const images = props.data.map(item => ({
+    id: item.id,
+    filePath: item.filePath,
+    prompt: item.prompt || ""
+  }));
+  initVideoData.value = {
+    images,
+    mode: "multi"
+  };
+  nextTick(() => {
+    newVideoShow.value = true;
+  });
+}
 
 function handleEdit(item: Storyboard) {
   storyboardEditorRef.value?.doFusionEdit({
@@ -212,6 +273,36 @@ function delStoryboardsFn(id: number, index: number, event: MouseEvent) {
         background: #d1d5db;
         box-shadow: none;
         cursor: not-allowed;
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .batch-video-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+      }
+
+      &:active {
+        transform: translateY(0);
       }
     }
   }
@@ -388,6 +479,39 @@ function delStoryboardsFn(id: number, index: number, event: MouseEvent) {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+      }
+
+      .card-actions {
+        display: flex;
+        justify-content: center;
+        padding: 0 16px 16px;
+        gap: 8px;
+
+        .action-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border: none;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &.video-btn {
+            flex: 1;
+            justify-content: center;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            }
+          }
         }
       }
     }

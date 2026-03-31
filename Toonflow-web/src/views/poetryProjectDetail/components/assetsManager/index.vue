@@ -207,6 +207,8 @@
 
 <script setup lang="ts">
 import { message, Modal } from "ant-design-vue";
+import { ref, onMounted, watch, computed } from "vue";
+import { storeToRefs } from "pinia";
 import type { VxeTableInstance } from "vxe-table";
 import axios from "@/utils/axios";
 import errorPicture from "@/utils/error";
@@ -466,6 +468,19 @@ onMounted(() => {
 watch(batchShow, (val) => {
   if (!val) changeFilter(currentFilter.value);
 });
+
+// 监听项目切换，重置数据
+watch(
+  () => projectId.value,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      projectElements.value = [];
+      scriptList.value = [];
+      currentScriptId.value = null;
+      changeFilter(currentFilter.value);
+    }
+  }
+);
 </script>
 
 <style lang="scss" scoped>

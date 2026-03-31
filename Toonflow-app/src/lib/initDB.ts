@@ -277,6 +277,7 @@ export default async (knex: Knex, forceInit: boolean = false): Promise<void> => 
       name: "t_poetry_video",
       builder: (table) => {
         table.integer("id").notNullable();
+        table.integer("prompt_id").notNullable().defaultTo(0); // 关联的 prompt_id
         table.text("resolution");
         table.text("prompt");
         table.text("filePath");
@@ -852,7 +853,7 @@ export default async (knex: Knex, forceInit: boolean = false): Promise<void> => 
       },
     },
     {
-      name: "t_poetry_video",
+      name: "t_poetry_video_session",
       builder: (table) => {
         table.integer("id").notNullable();
         table.integer("prompt_id").notNullable(); // 关联 t_poetry_prompt

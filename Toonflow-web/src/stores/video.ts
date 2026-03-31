@@ -52,6 +52,8 @@ export default defineStore(
     const currentScriptId = ref<number | null>(null);
     // 当前项目ID
     const currentProjectId = ref<number | null>(null);
+    // 是否为诗歌模式
+    const isPoetryMode = ref(false);
     // 轮询定时器
     let pollingTimer: number | null = null;
     // 配置ID计数器
@@ -81,9 +83,10 @@ export default defineStore(
     }
 
     // 设置当前脚本ID并加载数据
-    async function setCurrentScript(scriptId: number, projectId: number) {
+    async function setCurrentScript(scriptId: number, projectId: number, poetryMode = false) {
       currentScriptId.value = scriptId;
       currentProjectId.value = projectId;
+      isPoetryMode.value = poetryMode;
       // 同时获取视频配置和视频生成结果
       await Promise.all([fetchVideoConfigs(scriptId), fetchVideoData(scriptId)]);
     }
@@ -95,7 +98,8 @@ export default defineStore(
           scriptId: scriptId,
           specifyIds: specifyIds,
         };
-        const { data } = await axios.post("/video/getVideo", reqBodyObj);
+        const endpoint = isPoetryMode.value ? "/poetry_video/getVideo" : "/video/getVideo";
+        const { data } = await axios.post(endpoint, reqBodyObj);
 
         if (specifyIds.length > 0) {
           // 部分更新：只更新指定ID的结果状态
@@ -156,7 +160,8 @@ export default defineStore(
     // 从后端获取视频配置列表
     async function fetchVideoConfigs(scriptId: number) {
       try {
-        const { data } = await axios.post("/video/getVideoConfigs", { scriptId });
+        const endpoint = isPoetryMode.value ? "/poetry_video/getVideoConfigs" : "/video/getVideoConfigs";
+        const { data } = await axios.post(endpoint, { scriptId });
         if (data && Array.isArray(data)) {
           // 过滤掉当前脚本的旧配置
           videoConfigs.value = [];
@@ -243,7 +248,8 @@ export default defineStore(
     async function removeConfig(configId: number) {
       // 调用后端接口删除配置（包括文件和视频）
       try {
-        await axios.post("/video/deleteVideoConfig", { id: configId });
+        const endpoint = isPoetryMode.value ? "/poetry_video/deleteVideoConfig" : "/video/deleteVideoConfig";
+        await axios.post(endpoint, { id: configId });
       } catch (error) {
         console.error("删除配置失败:", error);
         throw error;
@@ -279,7 +285,8 @@ export default defineStore(
         config.images.forEach((img) => videoImgs.push(img.filePath));
       }
       // 调用后端接口
-      const { data } = await axios.post("/video/generateVideo", {
+      const endpoint = isPoetryMode.value ? "/poetry_video/generateVideo" : "/video/generateVideo";
+      const { data } = await axios.post(endpoint, {
         projectId: config.projectId,
         scriptId: config.scriptId,
         mode: config.mode,

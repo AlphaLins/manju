@@ -229,7 +229,7 @@ import { ref, watch, onMounted, computed } from "vue";
 import { message } from "ant-design-vue";
 import { PlusOutlined, DeleteOutlined, CloseOutlined } from "@ant-design/icons-vue";
 import draggable from "vuedraggable";
-import mainElement from "@/views/projectDetail/components/assetsManager/components/mainElement.vue";
+import mainElement from "@/views/poetryProjectDetail/components/assetsManager/components/mainElement.vue";
 import axios from "@/utils/axios";
 import store from "@/stores";
 import videoStore from "@/stores/video";
@@ -277,7 +277,16 @@ interface Storyboard {
   prompt: string;
   duration: number;
 }
-const props = defineProps<{ scriptId: number }>();
+
+interface InitVideoData {
+  images: ImageItem[];
+  mode: "startEnd" | "multi" | "single";
+}
+
+const props = defineProps<{
+  scriptId: number;
+  initData?: InitVideoData;
+}>();
 const storyboardShow = defineModel<boolean>({
   default: false,
 });
@@ -306,26 +315,86 @@ onMounted(async () => {
     userId: Number(localStorage.getItem("userId")),
   });
   manufacturerList.value = res.data;
-
   allManufacturerDisable.value = manufacturerList.value.length === 0;
 });
-watch(storyboardShow, (v) => {
-  if (v) {
+
+// 监听弹窗打开
+watch(storyboardShow, async (show) => {
+  if (show) {
     videoConfigs.value = [];
     getModelList();
+
+    // 确保 manufacturerList 已加载
+    if (manufacturerList.value.length === 0) {
+      const res = await axios.post("/poetry_video/getManufacturer", {
+        userId: Number(localStorage.getItem("userId")),
+      });
+      manufacturerList.value = res.data;
+      allManufacturerDisable.value = manufacturerList.value.length === 0;
+    }
+
+    // 如果有初始数据，自动创建配置并填充分镜图
+    if (props.initData && props.initData.images && props.initData.images.length > 0) {
+      addVideoConfigWithInitData(props.initData);
+    }
   }
 });
 
-function addVideoConfig() {
-  const defaultManufacturer: string = availableManufacturers.value[0]?.manufacturer || "volcengine";
-  const defaultModel: string = availableManufacturers.value[0]
-    ? manufacturerList.value.find((i) => i.id === availableManufacturers.value[0].value)?.model || ""
+// 监听 initData 变化（在弹窗已打开后）
+watch(() => props.initData, (initData) => {
+  if (initData && initData.images && initData.images.length > 0 && storyboardShow.value) {
+    videoConfigs.value = [];
+    addVideoConfigWithInitData(initData);
+  }
+}, { deep: true });
+
+function addVideoConfigWithInitData(initData: InitVideoData) {
+  const firstManufacturer = availableManufacturers.value[0];
+  const defaultManufacturer: string = firstManufacturer?.manufacturer || "volcengine";
+  const defaultModel: string = firstManufacturer
+    ? manufacturerList.value.find((i) => i.id == firstManufacturer.value)?.model || ""
     : "";
 
   const newConfig: VideoConfig = {
     id: ++configIdCounter,
-    configId: undefined,
-    manufacturer: "",
+    configId: firstManufacturer?.value, // 使用第一个可用模型作为默认值
+    manufacturer: defaultManufacturer,
+    model: defaultModel,
+    mode: initData.mode || getDefaultMode(defaultManufacturer, defaultModel) as VideoConfig["mode"],
+    startFrame: null,
+    endFrame: null,
+    images: [],
+    resolution: getDefaultResolution(defaultManufacturer, defaultModel),
+    duration: getDefaultDuration(defaultManufacturer, defaultModel),
+    prompt: initData.images[0]?.prompt || "",
+    promptLoading: false,
+    audioEnabled: false,
+  };
+
+  // 根据模式填充分镜图
+  if (initData.mode === "single" || initData.mode === "startEnd") {
+    newConfig.startFrame = initData.images[0] || null;
+    if (initData.images.length > 1) {
+      newConfig.endFrame = initData.images[1] || null;
+    }
+  } else {
+    newConfig.images = [...initData.images];
+  }
+
+  videoConfigs.value.push(newConfig);
+}
+
+function addVideoConfig() {
+  const firstItem = availableManufacturers.value[0];
+  const defaultManufacturer: string = firstItem?.manufacturer || "volcengine";
+  const defaultModel: string = firstItem
+    ? manufacturerList.value.find((i) => i.id === firstItem.value)?.model || ""
+    : "";
+
+  const newConfig: VideoConfig = {
+    id: ++configIdCounter,
+    configId: firstItem?.value, // 使用第一个可用模型的 ID
+    manufacturer: defaultManufacturer,
     model: defaultModel,
     mode: getDefaultMode(defaultManufacturer, defaultModel) as VideoConfig["mode"],
     startFrame: null,
@@ -347,19 +416,18 @@ function onManufacturerChange(config: VideoConfig) {
   config.manufacturer = selectedItem?.manufacturer!;
   config.model = selectedItem?.model || "";
   const manufacturerConfig = getManufacturerConfig(config.manufacturer, config.model);
-  // 重置模式
-  config.mode = manufacturerConfig.defaultMode as VideoConfig["mode"];
+  // 更新模式和分辨率（保留已有图片）
   config.resolution = manufacturerConfig.defaultResolution;
   config.duration = getDefaultDuration(config.manufacturer, config.model);
-  // 清空图片选择
-  config.startFrame = null;
-  config.endFrame = null;
-  config.images = [];
 }
 function onModeChange(config: VideoConfig) {
-  config.startFrame = null;
-  config.endFrame = null;
-  config.images = [];
+  // 切换模式时保留已有图片，根据新模式重新分配
+  const hasImages = config.startFrame || config.endFrame || config.images.length > 0;
+  if (!hasImages) {
+    config.startFrame = null;
+    config.endFrame = null;
+    config.images = [];
+  }
 }
 function openImageSelector(config: VideoConfig, type: "start" | "end" | "multi") {
   // 同步 scriptId 到 store，确保 mainElement 能获取正确的分镜数据
@@ -494,6 +562,10 @@ async function handleOk() {
   }
   for (let i = 0; i < videoConfigs.value.length; i++) {
     const config = videoConfigs.value[i];
+    if (!config.configId) {
+      message.warning(`配置${i + 1}：请选择视频模型`);
+      return;
+    }
     if (config.mode === "startEnd" && !config.startFrame) {
       message.warning(`配置${i + 1}：请选择首帧图片`);
       return;
@@ -515,6 +587,7 @@ async function handleOk() {
   // 保存配置到后端，同时更新 store
   generateVideoLoading.value = true;
   try {
+    const addedConfigIds: number[] = [];
     for (const config of videoConfigs.value) {
       // 调用后端接口保存配置
       const res = await axios.post("/poetry_video/addVideoConfig", {
@@ -533,11 +606,21 @@ async function handleOk() {
 
       // 将后端返回的配置添加到 store
       if (res.data?.data) {
-        videoStoreInstance.addConfigFromBackend(res.data.data);
+        const addedConfig = videoStoreInstance.addConfigFromBackend(res.data.data);
+        addedConfigIds.push(addedConfig.id);
       }
     }
     message.success(`成功添加${videoConfigs.value.length}个视频配置`);
     storyboardShow.value = false;
+
+    // 自动开始生成视频
+    for (const configId of addedConfigIds) {
+      try {
+        await videoStoreInstance.generateVideo(configId);
+      } catch (e) {
+        console.error("自动生成视频失败:", e);
+      }
+    }
   } catch (error: any) {
     message.error(error?.message || "添加配置失败");
   } finally {

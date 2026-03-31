@@ -26,9 +26,10 @@ export default router.post(
     prompt: z.string(),
     mode: z.enum(["startEnd", "multi", "single", "text"]),
     audioEnabled: z.boolean(),
+    promptId: z.number().optional(), // 关联的 prompt_id
   }),
   async (req, res) => {
-    const { type, mode, scriptId, projectId, configId, aiConfigId, resolution, filePath, duration, prompt, audioEnabled } = req.body;
+    const { type, mode, scriptId, projectId, configId, aiConfigId, resolution, filePath, duration, prompt, audioEnabled, promptId } = req.body;
 
     if (mode == "text") filePath.length = 0;
     else if (!filePath.length) {
@@ -106,6 +107,7 @@ export default router.post(
     const [videoId] = await u.db("t_poetry_video").insert({
       scriptId,
       configId: configId || null, // 关联的视频配置ID
+      prompt_id: promptId || 0, // 关联的 prompt_id，默认 0
       time: duration,
       resolution,
       prompt,

@@ -17,10 +17,10 @@ export default router.post(
     // 查询该脚本下的所有视频配置
     const configs = await u
       .db("t_poetry_videoConfig")
-      .leftJoin("t_config", "t_config.id", "t_videoConfig.aiConfigId")
+      .leftJoin("t_config", "t_config.id", "t_poetry_videoConfig.aiConfigId")
       .where({ scriptId })
       .orderBy("createTime", "desc")
-      .select("t_videoConfig.*", "t_config.manufacturer as manufacturer", "t_config.model");
+      .select("t_poetry_videoConfig.*", "t_config.manufacturer as manufacturer", "t_config.model");
     // 解析 JSON 字段
     const result = configs.map((config: any) => ({
       id: config.id,

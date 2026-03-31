@@ -74,6 +74,8 @@
 
 <script setup lang="ts">
 import { MessagePlugin } from "tdesign-vue-next";
+import { ref, onMounted, watch } from "vue";
+import { storeToRefs } from "pinia";
 import axios from "@/utils/axios";
 import purgeNovel from "./components/purgeNovel.vue";
 import store from "@/stores";
@@ -145,6 +147,17 @@ const handleDelete = (row: OriginalText) => {
 };
 
 onMounted(getNovel);
+
+// 监听项目切换，重置数据
+watch(
+  () => projectId.value,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      originalList.value = [];
+      getNovel();
+    }
+  }
+);
 </script>
 
 <style lang="scss" scoped>

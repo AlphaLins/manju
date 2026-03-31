@@ -265,7 +265,7 @@ import { ref, computed, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import axios from "@/utils/axios";
 import { MessagePlugin, DialogPlugin } from "tdesign-vue-next";
-import mainElement from "@/views/projectDetail/components/assetsManager/components/mainElement.vue";
+import mainElement from "@/views/poetryProjectDetail/components/assetsManager/components/mainElement.vue";
 import store from "@/stores";
 
 const { projectId } = storeToRefs(store());
